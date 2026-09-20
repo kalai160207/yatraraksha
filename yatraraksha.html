@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YatraRaksha — Smart Tourist Safety & Emergency Response System</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #090d16;
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+
+    .font-serif-gold {
+      font-family: 'Cinzel', serif;
+    }
+
+    /* Glassmorphism */
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(217, 119, 6, 0.2);
+    }
+
+    .glass-card-gold {
+      background: linear-gradient(135deg, rgba(30, 27, 75, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      box-shadow: 0 8px 32px 0 rgba(217, 119, 6, 0.15);
+    }
+
+    .gold-gradient-text {
+      background: linear-gradient(135deg, #fef08a 0%, #f59e0b 50%, #d97706 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .gold-gradient-bg {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .gold-border {
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #f59e0b;
+    }
+
+    #map-container {
+      height: 100%;
+      width: 100%;
+      border-radius: 0.75rem;
+      z-index: 1;
+    }
+
+    .pulse-danger {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+      animation: pulse-danger-anim 1.5s infinite;
+    }
+
+    @keyframes pulse-danger-anim {
+      0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 15px rgba(239, 68, 68, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- TRANSLATION MESSAGES ---
+    const i18n = {
+      en: {
+        appTitle: "YATRARAKSHA",
+        subtitle: "Smart Tourist Safety & Emergency Response",
+        modeTourist: "Tourist Mobile PWA",
+        modeAuthority: "Authority Command Center",
+        modeSim: "GPS Simulator",
+        modeVerify: "Public QR Verifier",
+        sosHold: "HOLD FOR SOS (2s)",
+        sosCancelling: "Cancel SOS",
+        safetyScore: "Safety Score",
+        zoneStatus: "Current Geo-Zone",
+        safe: "SAFE ZONE",
+        caution: "CAUTION ZONE",
+        highRisk: "HIGH RISK",
+        restricted: "RESTRICTED",
+        digitalId: "Blockchain Digital ID",
+        verified: "VERIFIED ON-CHAIN",
+        askRaksha: "Ask Raksha AI Assistant...",
+        emergencyNumbers: "Emergency Call: 112",
+        activeIncidents: "Active Incidents",
+        touristCount: "Tracked Tourists",
+        blockchainLedger: "Polygon Amoy / Hardhat Network",
+      },
+      ta: {
+        appTitle: "யாத்ராரக்ஷா",
+        subtitle: "சுற்றுலாப் பயணிகள் பாதுகாப்பு மற்றும் அவசரக்கால அமைப்பு",
+        modeTourist: "பயணி செயலி",
+        modeAuthority: "கட்டுப்பாட்டு மையம்",
+        modeSim: "ஜிபிஎஸ் உருவகப்படுத்துதல்",
+        modeVerify: "க்யூஆர் சரிபார்ப்பு",
+        sosHold: "அவசர உதவிக்கு அழுத்தவும் (2 வினாடி)",
+        sosCancelling: "ரத்து செய்",
+        safetyScore: "பாதுகாப்பு மதிப்பெண்",
+        zoneStatus: "தற்போதைய மண்டலம்",
+        safe: "பாதுகாப்பான மண்டலம்",
+        caution: "எச்சரிக்கை மண்டலம்",
+        highRisk: "அதிக அபாயம்",
+        restricted: "தடுக்கப்பட்ட பகுதி",
+        digitalId: "பிளாக்செயின் டிஜிட்டல் ஐடி",
+        verified: "சரிபார்க்கப்பட்டது",
+        askRaksha: "ரக்ஷா AI உதவி பெறுக...",
+        emergencyNumbers: "அவசர எண்: 112",
+        activeIncidents: "செயலில் உள்ள சம்பவங்கள்",
+        touristCount: "கண்காணிக்கப்படும் பயணிகள்",
+        blockchainLedger: "பிளாக்செயின் பிணையம்",
+      },
+      hi: {
+        appTitle: "यात्रा रक्षा",
+        subtitle: "स्मार्ट पर्यटक सुरक्षा और आपातकालीन प्रतिक्रिया प्रणाली",
+        modeTourist: "पर्यटक ऐप",
+        modeAuthority: "कमांड सेंटर",
+        modeSim: "जीपीएस सिमुलेटर",
+        modeVerify: "क्यूआर सत्यापन",
+        sosHold: "आपातकालीन SOS (2 सेकंड दबाएं)",
+        sosCancelling: "रद्द करें",
+        safetyScore: "सुरक्षा स्कोर",
+        zoneStatus: "वर्तमान क्षेत्र",
+        safe: "सुरक्षित क्षेत्र",
+        caution: "सावधान क्षेत्र",
+        highRisk: "उच्च जोखिम",
+        restricted: "प्रतिबंधित क्षेत्र",
+        digitalId: "ब्लॉकचेन डिजिटल आईडी",
+        verified: "सत्यापित",
+        askRaksha: "रक्षा AI से पूछें...",
+        emergencyNumbers: "आपातकालीन नंबर: 112",
+        activeIncidents: "सक्रिय घटनाएं",
+        touristCount: "ट्रैक किए गए पर्यटक",
+        blockchainLedger: "ब्लॉकचेन नेटवर्क",
+      },
+      ml: {
+        appTitle: "യാത്രാരക്ഷ",
+        subtitle: "സ്മാർട്ട് ടൂറിസ്റ്റ് സുരക്ഷാ സംവിധാനം",
+        modeTourist: "ടൂറിസ്റ്റ് ആപ്പ്",
+        modeAuthority: "കമാൻഡ് സെന്റർ",
+        modeSim: "ജിപിഎസ് സിമുലേറ്റർ",
+        modeVerify: "ക്യുആർ പരിശോധന",
+        sosHold: "അടിയന്തര സഹായത്തിന് (2 സെക്കൻഡ്)",
+        sosCancelling: "റദ്ദാക്കുക",
+        safetyScore: "സുരക്ഷാ സ്കോർ",
+        zoneStatus: "നിലവിലെ പ്രദേശം",
+        safe: "സുരക്ഷിത പ്രദേശം",
+        caution: "ജാഗ്രതാ പ്രദേശം",
+        highRisk: "ഉയർന്ന അപകടസാധ്യത",
+        restricted: "നിരോധിത മേഖല",
+        digitalId: "ബ്ലോക്ക്ചെയിൻ ഡിജിറ്റൽ ഐഡി",
+        verified: "സ്ഥിരീകരിച്ചു",
+        askRaksha: "രക്ഷ AI അസിസ്റ്റന്റിനോട് ചോദിക്കുക...",
+        emergencyNumbers: "അടിയന്തര നമ്പർ: 112",
+        activeIncidents: "സജീവ സംഭവങ്ങൾ",
+        touristCount: "ടൂറിസ്റ്റുകൾ",
+        blockchainLedger: "ബ്ലോക്ക്ചെയിൻ ശൃംഖല",
+      }
+    };
+
+    // --- DEMO GEO-ZONES (Ooty/Nilgiris Region Demo Coordinates) ---
+    const MOCK_ZONES = [
+      { id: 'z1', name: 'Ooty Botanical Gardens', type: 'SAFE', lat: 11.416, lng: 76.712, radius: 800, desc: 'Well lit, high security, tourist area' },
+      { id: 'z2', name: 'Doddabetta Viewpoint', type: 'CAUTION', lat: 11.402, lng: 76.736, radius: 900, desc: 'Fog advisory & steep cliffs' },
+      { id: 'z3', name: 'Pykara Forest Reserve Pass', type: 'HIGH_RISK', lat: 11.432, lng: 76.602, radius: 1200, desc: 'Wildlife movement area after dusk' },
+      { id: 'z4', name: 'Avalanche Landslide Hazard Zone', type: 'RESTRICTED', lat: 11.315, lng: 76.580, radius: 1500, desc: 'Active landslide alert & restricted access' }
+    ];
+
+    // --- MAIN APP COMPONENT ---
+    function App() {
+      const [lang, setLang] = useState('en');
+      const t = i18n[lang];
+
+      // View state: 'tourist' | 'authority' | 'sim' | 'verify'
+      const [activeView, setActiveView] = useState('tourist');
+
+      // Shared Tourist State
+      const [tourist, setTourist] = useState({
+        name: "Aarav Sharma",
+        passport: "IND-8849201",
+        nationality: "Indian",
+        digitalIdHash: "0x7f8a91c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b",
+        blockchainTx: "0x3a4b...91f2",
+        status: "VALID",
+        expiry: "2026-10-15",
+        battery: 88,
+        lat: 11.4165,
+        lng: 76.7125,
+        speed: 3.2, // km/h
+        currentZone: MOCK_ZONES[0],
+        privacySharing: true,
+      });
+
+      // Safety Score Engine
+      const [safetyScore, setSafetyScore] = useState(95);
+      const [scoreDeductions, setScoreDeductions] = useState([]);
+      const [scoreHistory, setScoreHistory] = useState([
+        { time: '10:00', score: 100, reason: 'Trip Started' },
+        { time: '10:30', score: 98, reason: 'Normal movement' },
+        { time: '11:00', score: 95, reason: 'Entered Safe Zone' }
+      ]);
+
+      // Incidents & Alerts Queue
+      const [incidents, setIncidents] = useState([
+        {
+          id: 'INC-1092',
+          touristName: 'Elena Rostova',
+          touristId: '0x99a1...1092',
+          type: 'SOS_MANUAL',
+          status: 'NEW',
+          lat: 11.3160,
+          lng: 76.5810,
+          timestamp: new Date().toLocaleTimeString(),
+          zone: 'Avalanche Landslide Hazard Zone',
+          battery: 14,
+          score: 32
+        }
+      ]);
+
+      // SOS Trigger States
+      const [sosHolding, setSosHolding] = useState(false);
+      const [sosCountdown, setSosCountdown] = useState(null);
+      const [activeSos, setActiveSos] = useState(null);
+      const holdTimerRef = useRef(null);
+
+      // Audit Trail Ledger
+      const [auditTrail, setAuditTrail] = useState([
+        { id: 1, action: "DIGITAL_ID_ISSUED", actor: "System Issuer", target: "0x7f8a91c...", hash: "0x12ab...99", time: "09:15 AM" },
+        { id: 2, action: "GEOZONE_ENTER", actor: "Tourist (Aarav)", target: "Ooty Botanical Gardens", hash: "0x88cd...31", time: "10:00 AM" }
+      ]);
+
+      // Calculate Safety Score dynamically
+      const recalculateScore = (currentTourist) => {
+        let score = 100;
+        let reasons = [];
+
+        // Zone Penalty
+        if (currentTourist.currentZone?.type === 'CAUTION') {
+          score -= 10;
+          reasons.push('Caution Zone (-10)');
+        } else if (currentTourist.currentZone?.type === 'HIGH_RISK') {
+          score -= 25;
+          reasons.push('High-Risk Area (-25)');
+        } else if (currentTourist.currentZone?.type === 'RESTRICTED') {
+          score -= 40;
+          reasons.push('Restricted Area (-40)');
+        }
+
+        // Battery penalty
+        if (currentTourist.battery < 20) {
+          score -= 15;
+          reasons.push('Low Battery (-15)');
+        }
+
+        // Night time check simulation
+        const currentHour = new Date().getHours();
+        if (currentHour >= 21 || currentHour <= 5) {
+          if (currentTourist.currentZone?.type !== 'SAFE') {
+            score -= 10;
+            reasons.push('Night Wandering Hazard (-10)');
+          }
+        }
+
+        score = Math.max(0, Math.min(100, score));
+        setSafetyScore(score);
+        setScoreDeductions(reasons);
+      };
+
+      // Trigger recalculation on tourist telemetry update
+      useEffect(() => {
+        recalculateScore(tourist);
+      }, [tourist.lat, tourist.lng, tourist.battery, tourist.currentZone]);
+
+      // SOS Hold Logic
+      const handleSosMouseDown = () => {
+        setSosHolding(true);
+        holdTimerRef.current = setTimeout(() => {
+          startSosCountdown();
+        }, 2000);
+      };
+
+      const handleSosMouseUp = () => {
+        setSosHolding(false);
+        if (holdTimerRef.current && sosCountdown === null) {
+          clearTimeout(holdTimerRef.current);
+        }
+      };
+
+      const startSosCountdown = () => {
+        setSosCountdown(5);
+      };
+
+      useEffect(() => {
+        let interval = null;
+        if (sosCountdown !== null && sosCountdown > 0) {
+          interval = setInterval(() => {
+            setSosCountdown(prev => prev - 1);
+          }, 1000);
+        } else if (sosCountdown === 0) {
+          triggerFinalSos();
+          setSosCountdown(null);
+        }
+        return () => clearInterval(interval);
+      }, [sosCountdown]);
+
+      const triggerFinalSos = () => {
+        const newSos = {
+          id: `INC-${Math.floor(1000 + Math.random() * 9000)}`,
+          touristName: tourist.name,
+          touristId: tourist.digitalIdHash.substring(0, 10) + '...',
+          type: 'SOS_TRIGGERED',
+          status: 'NEW',
+          lat: tourist.lat,
+          lng: tourist.lng,
+          timestamp: new Date().toLocaleTimeString(),
+          zone: tourist.currentZone?.name || 'Unknown',
+          battery: tourist.battery,
+          score: safetyScore
+        };
+
+        setActiveSos(newSos);
+        setIncidents(prev => [newSos, ...prev]);
+
+        // Log to Blockchain Audit
+        const auditEntry = {
+          id: Date.now(),
+          action: "EMERGENCY_SOS_EMITTED",
+          actor: tourist.name,
+          target: newSos.id,
+          hash: `0x${Math.random().toString(16).substring(2, 10)}...`,
+          time: new Date().toLocaleTimeString()
+        };
+        setAuditTrail(prev => [auditEntry, ...prev]);
+      };
+
+      const cancelSos = () => {
+        setSosCountdown(null);
+        setSosHolding(false);
+        if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+      };
+
+      return (
+        <div className="flex-1 flex flex-col min-h-screen">
+          {/* TOP NAVBAR */}
+          <header className="bg-slate-900/90 border-b border-amber-500/20 sticky top-0 z-50 backdrop-blur-md px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl gold-gradient-bg flex items-center justify-center font-bold text-slate-950 text-xl font-serif-gold shadow-lg shadow-amber-500/20">
+                YR
+              </div>
+              <div>
+                <h1 className="font-serif-gold text-lg md:text-xl font-bold tracking-wider gold-gradient-text">
+                  {t.appTitle}
+                </h1>
+                <p className="text-xs text-slate-400 hidden sm:block">{t.subtitle}</p>
+              </div>
+            </div>
+
+            {/* NAVIGATION TABS */}
+            <nav className="flex items-center space-x-1 sm:space-x-2 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+              <button
+                onClick={() => setActiveView('tourist')}
+                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all ${
+                  activeView === 'tourist' ? 'gold-gradient-bg text-slate-950 shadow-md' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                📱 {t.modeTourist}
+              </button>
+              <button
+                onClick={() => setActiveView('authority')}
+                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all ${
+                  activeView === 'authority' ? 'gold-gradient-bg text-slate-950 shadow-md' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                🛡️ {t.modeAuthority}
+              </button>
+              <button
+                onClick={() => setActiveView('sim')}
+                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all ${
+                  activeView === 'sim' ? 'gold-gradient-bg text-slate-950 shadow-md' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                ⚡ {t.modeSim}
+              </button>
+              <button
+                onClick={() => setActiveView('verify')}
+                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all ${
+                  activeView === 'verify' ? 'gold-gradient-bg text-slate-950 shadow-md' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                🔍 {t.modeVerify}
+              </button>
+            </nav>
+
+            {/* LANGUAGE SELECTOR & STATUS */}
+            <div className="flex items-center space-x-3">
+              <div className="hidden lg:flex items-center space-x-2 bg-slate-950 px-2.5 py-1 rounded-lg border border-amber-500/20 text-xs text-amber-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Hardhat #31337</span>
+              </div>
+
+              <select
+                value={lang}
+                onChange={(e) => setLang(e.target.value)}
+                className="bg-slate-950 border border-slate-700 text-slate-200 text-xs md:text-sm rounded-lg px-2.5 py-1.5 focus:border-amber-500 focus:outline-none"
+              >
+                <option value="en">English (IN)</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+                <option value="hi">हिन्दी (Hindi)</option>
+                <option value="ml">മലയാളം (Malayalam)</option>
+              </select>
+            </div>
+          </header>
+
+          {/* MAIN VIEW CONTENT CONTAINER */}
+          <main className="flex-1 p-4 max-w-7xl w-full mx-auto">
+            {/* VIEW 1: TOURIST PWA MODE */}
+            {activeView === 'tourist' && (
+              <TouristPwaView
+                tourist={tourist}
+                setTourist={setTourist}
+                safetyScore={safetyScore}
+                scoreDeductions={scoreDeductions}
+                sosHolding={sosHolding}
+                sosCountdown={sosCountdown}
+                activeSos={activeSos}
+                handleSosMouseDown={handleSosMouseDown}
+                handleSosMouseUp={handleSosMouseUp}
+                cancelSos={cancelSos}
+                t={t}
+              />
+            )}
+
+            {/* VIEW 2: AUTHORITY COMMAND CENTER */}
+            {activeView === 'authority' && (
+              <AuthorityCommandCenter
+                tourist={tourist}
+                incidents={incidents}
+                setIncidents={setIncidents}
+                zones={MOCK_ZONES}
+                auditTrail={auditTrail}
+                t={t}
+              />
+            )}
+
+            {/* VIEW 3: GPS TELEMETRY SIMULATOR */}
+            {activeView === 'sim' && (
+              <GpsSimulatorView
+                tourist={tourist}
+                setTourist={setTourist}
+                zones={MOCK_ZONES}
+                t={t}
+              />
+            )}
+
+            {/* VIEW 4: PUBLIC QR VERIFICATION */}
+            {activeView === 'verify' && (
+              <PublicQrVerifierView
+                tourist={tourist}
+                zones={MOCK_ZONES}
+                t={t}
+              />
+            )}
+          </main>
+
+          {/* FOOTER */}
+          <footer className="border-t border-slate-800/80 bg-slate-950/80 px-4 py-3 text-center text-xs text-slate-500">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+              <p>© 2026 YatraRaksha — Smart Tourist Safety Platform. Privacy-by-design enabled.</p>
+              <div className="flex space-x-4">
+                <span className="text-slate-400">AES-256 PII Encryption</span>
+                <span>•</span>
+                <span className="text-slate-400">Polygon Amoy Testnet</span>
+                <span>•</span>
+                <span className="text-slate-400">Offline PWA IndexedDB Queue</span>
+              </div>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    // --- SUB-COMPONENT: TOURIST PWA VIEW ---
+    function TouristPwaView({ tourist, setTourist, safetyScore, scoreDeductions, sosHolding, sosCountdown, activeSos, handleSosMouseDown, handleSosMouseUp, cancelSos, t }) {
+      const [chatMessages, setChatMessages] = useState([
+        { sender: 'bot', text: 'Namaste! I am Raksha, your AI Safety Companion. How can I assist you today?' }
+      ]);
+      const [chatInput, setChatInput] = useState('');
+
+      const sendChat = () => {
+        if (!chatInput.trim()) return;
+        const newMsgs = [...chatMessages, { sender: 'user', text: chatInput }];
+        setChatMessages(newMsgs);
+        setChatInput('');
+
+        // Simple intelligent bot response logic
+        setTimeout(() => {
+          let botReply = "I am monitoring your location safely. The surrounding area has regular police patrols.";
+          const q = chatInput.toLowerCase();
+          if (q.includes('safe') || q.includes('score')) {
+            botReply = `Your Safety Score is currently ${safetyScore}/100. You are in ${tourist.currentZone?.name}.`;
+          } else if (q.includes('hospital') || q.includes('medical')) {
+            botReply = "The nearest medical clinic is Ooty Government General Hospital (1.8 km away). Emergency contacts: 108 / 112.";
+          } else if (q.includes('police') || q.includes('station')) {
+            botReply = "Nearest Tourist Police Booth: Botanical Garden Circle (400 meters away). Phone: 0423-2442212.";
+          }
+          setChatMessages([...newMsgs, { sender: 'bot', text: botReply }]);
+        }, 700);
+      };
+
+      const getScoreColor = (score) => {
+        if (score >= 80) return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10';
+        if (score >= 50) return 'text-amber-400 border-amber-500/30 bg-amber-500/10';
+        return 'text-rose-500 border-rose-500/30 bg-rose-500/10';
+      };
+
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* LEFT COLUMN: DIGITAL ID & SAFETY SCORE */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* DIGITAL ID CARD */}
+            <div className="glass-card-gold rounded-2xl p-5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+              
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <span className="text-[10px] uppercase tracking-widest text-amber-400 font-bold">{t.digitalId}</span>
+                  <h3 className="font-serif-gold text-lg text-white font-bold">{tourist.name}</h3>
+                </div>
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] px-2.5 py-1 rounded-full font-bold tracking-wider">
+                  ✓ {t.verified}
+                </span>
+              </div>
+
+              <div className="bg-slate-950/70 rounded-xl p-3 border border-amber-500/20 space-y-2 text-xs mb-4">
+                <div className="flex justify-between text-slate-400">
+                  <span>Passport / ID:</span>
+                  <span className="text-slate-200 font-mono">{tourist.passport}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>On-Chain ID Hash:</span>
+                  <span className="text-amber-400 font-mono text-[11px]">{tourist.digitalIdHash.substring(0, 16)}...</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Valid Until:</span>
+                  <span className="text-slate-200 font-mono">{tourist.expiry}</span>
+                </div>
+              </div>
+
+              {/* SIMULATED DYNAMIC QR CODE */}
+              <div className="flex items-center space-x-3 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                <div className="bg-white p-2 rounded-lg flex items-center justify-center">
+                  {/* Visual QR pattern mockup */}
+                  <div className="w-12 h-12 bg-slate-950 grid grid-cols-4 gap-0.5 p-0.5 rounded">
+                    <div className="bg-white"></div><div className="bg-white"></div><div className="bg-slate-950"></div><div className="bg-white"></div>
+                    <div className="bg-white"></div><div className="bg-slate-950"></div><div className="bg-white"></div><div className="bg-slate-950"></div>
+                    <div className="bg-slate-950"></div><div className="bg-white"></div><div className="bg-white"></div><div className="bg-white"></div>
+                    <div className="bg-white"></div><div className="bg-slate-950"></div><div className="bg-white"></div><div className="bg-white"></div>
+                  </div>
+                </div>
+                <div className="text-xs">
+                  <p className="text-slate-200 font-medium">Dynamic Verification QR</p>
+                  <p className="text-slate-400 text-[10px]">Rotates every 60s for anti-cloning</p>
+                </div>
+              </div>
+            </div>
+
+            {/* LIVE SAFETY SCORE RING */}
+            <div className="glass-card rounded-2xl p-5 border border-slate-800">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-sm font-bold text-slate-300">{t.safetyScore}</h3>
+                <span className="text-xs text-slate-400">Updated Live</span>
+              </div>
+
+              <div className="flex items-center justify-around my-2">
+                <div className={`w-28 h-28 rounded-full border-4 flex flex-col items-center justify-center ${getScoreColor(safetyScore)}`}>
+                  <span className="text-3xl font-black">{safetyScore}</span>
+                  <span className="text-[10px] tracking-wider uppercase font-semibold">
+                    {safetyScore >= 80 ? 'SAFE' : safetyScore >= 50 ? 'CAUTION' : 'DANGER'}
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-slate-400">Current Zone:</span>
+                  </div>
+                  <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    {tourist.currentZone?.name || 'Safe Zone'}
+                  </span>
+                  <div className="text-slate-400 text-[11px]">
+                    Battery: <span className="text-slate-200 font-bold">{tourist.battery}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* DEDUCTIONS REASONING */}
+              {scoreDeductions.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-slate-800/80">
+                  <p className="text-xs text-slate-400 font-semibold mb-1.5">Score Factors:</p>
+                  <ul className="space-y-1">
+                    {scoreDeductions.map((reason, idx) => (
+                      <li key={idx} className="text-xs text-rose-400 flex items-center space-x-1.5">
+                        <span>⚠</span>
+                        <span>{reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* PRIVACY TOGGLE */}
+            <div className="glass-card rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-200">Live Location Sharing</p>
+                <p className="text-[10px] text-slate-400">Zero-knowledge proof encrypted pings</p>
+              </div>
+              <button
+                onClick={() => setTourist(prev => ({ ...prev, privacySharing: !prev.privacySharing }))}
+                className={`w-12 h-6 rounded-full transition-colors relative p-1 ${
+                  tourist.privacySharing ? 'bg-amber-500' : 'bg-slate-700'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full bg-slate-950 transition-transform ${
+                  tourist.privacySharing ? 'translate-x-6' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+          </div>
+
+          {/* MIDDLE COLUMN: EMERGENCY SOS & MAP */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* EMERGENCY SOS TRIGGER BUTTON */}
+            <div className="glass-card rounded-2xl p-6 border border-rose-500/30 text-center relative overflow-hidden">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-rose-400 mb-2">Emergency SOS Portal</h3>
+
+              {sosCountdown !== null ? (
+                <div className="py-4 space-y-3">
+                  <div className="text-5xl font-black text-rose-500 animate-bounce">{sosCountdown}</div>
+                  <p className="text-xs text-rose-300 font-semibold">Dispatching Emergency Alerts to Local Authorities...</p>
+                  <button
+                    onClick={cancelSos}
+                    className="px-6 py-2.5 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold hover:bg-slate-700 border border-slate-600"
+                  >
+                    {t.sosCancelling}
+                  </button>
+                </div>
+              ) : activeSos ? (
+                <div className="py-4 space-y-2 bg-rose-500/20 rounded-xl border border-rose-500/40 p-4">
+                  <span className="px-3 py-1 bg-rose-600 text-white text-xs font-bold rounded-full animate-pulse">
+                    ACTIVE SOS DISPATCHED
+                  </span>
+                  <p className="text-sm font-bold text-rose-200 mt-2">Incident ID: {activeSos.id}</p>
+                  <p className="text-xs text-slate-300">Police Command Center acknowledged. Live coordinates locked.</p>
+                  <a
+                    href="tel:112"
+                    className="inline-block mt-3 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg"
+                  >
+                    📞 Call 112 Direct
+                  </a>
+                </div>
+              ) : (
+                <div className="py-3 flex flex-col items-center">
+                  <button
+                    onMouseDown={handleSosMouseDown}
+                    onMouseUp={handleSosMouseUp}
+                    onTouchStart={handleSosMouseDown}
+                    onTouchEnd={handleSosMouseUp}
+                    className={`w-36 h-36 rounded-full font-black text-xl text-white shadow-2xl flex flex-col items-center justify-center transition-all duration-300 ${
+                      sosHolding ? 'bg-rose-700 scale-95 pulse-danger' : 'bg-gradient-to-tr from-rose-700 to-red-500 hover:scale-105 shadow-rose-900/50'
+                    }`}
+                  >
+                    <span className="text-3xl mb-1">🆘</span>
+                    <span className="text-xs font-bold">SOS</span>
+                  </button>
+                  <p className="text-[11px] text-slate-400 mt-3 font-medium">{t.sosHold}</p>
+                </div>
+              )}
+            </div>
+
+            {/* TOURIST MAP DISPLAY */}
+            <div className="glass-card rounded-2xl p-4 border border-slate-800 space-y-3">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-200">Live Geo-Fence Map</span>
+                <span className="text-slate-400">Lat: {tourist.lat.toFixed(4)}, Lng: {tourist.lng.toFixed(4)}</span>
+              </div>
+              <div className="h-64 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 relative">
+                <iframe
+                  title="Tourist Map"
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  src={`https://maps.google.com/maps?q=${tourist.lat},${tourist.lng}&z=14&output=embed`}
+                  className="opacity-80 invert filter contrast-125"
+                ></iframe>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: RAKSHA AI CHATBOT */}
+          <div className="lg:col-span-3 space-y-6">
+            <div className="glass-card rounded-2xl p-4 border border-amber-500/20 flex flex-col h-[520px]">
+              <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
+                <div className="w-8 h-8 rounded-lg gold-gradient-bg flex items-center justify-center text-slate-950 font-bold text-xs">
+                  🤖
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-200">Raksha AI Companion</h4>
+                  <p className="text-[10px] text-emerald-400">● Online & Guarding</p>
+                </div>
+              </div>
+
+              {/* CHAT MESSAGES */}
+              <div className="flex-1 overflow-y-auto py-3 space-y-3 pr-1 text-xs">
+                {chatMessages.map((m, i) => (
+                  <div
+                    key={i}
+                    className={`p-2.5 rounded-xl max-w-[85%] ${
+                      m.sender === 'user'
+                        ? 'bg-amber-500/20 text-amber-200 border border-amber-500/30 ml-auto'
+                        : 'bg-slate-800/80 text-slate-200 border border-slate-700/60 mr-auto'
+                    }`}
+                  >
+                    {m.text}
+                  </div>
+                ))}
+              </div>
+
+              {/* QUICK ACTION CARDS */}
+              <div className="grid grid-cols-2 gap-1.5 py-2">
+                <button
+                  onClick={() => setChatInput('Where is nearest police station?')}
+                  className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-[10px] text-slate-300 text-left truncate"
+                >
+                  🚓 Police Station
+                </button>
+                <button
+                  onClick={() => setChatInput('Where is nearest hospital?')}
+                  className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-[10px] text-slate-300 text-left truncate"
+                >
+                  🏥 Nearest Hospital
+                </button>
+              </div>
+
+              {/* INPUT BAR */}
+              <div className="flex space-x-2 pt-2 border-t border-slate-800">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && sendChat()}
+                  placeholder={t.askRaksha}
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  onClick={sendChat}
+                  className="px-3 py-1.5 gold-gradient-bg text-slate-950 font-bold rounded-xl text-xs hover:opacity-90"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- SUB-COMPONENT: AUTHORITY COMMAND CENTER ---
+    function AuthorityCommandCenter({ tourist, incidents, setIncidents, zones, auditTrail, t }) {
+      const acknowledgeIncident = (id) => {
+        setIncidents(prev => prev.map(inc => inc.id === id ? { ...inc, status: 'DISPATCHED' } : inc));
+      };
+
+      const resolveIncident = (id) => {
+        setIncidents(prev => prev.filter(inc => inc.id !== id));
+      };
+
+      return (
+        <div className="space-y-6">
+          {/* STATS METRICS BAR */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="glass-card rounded-xl p-4 border border-slate-800">
+              <span className="text-xs text-slate-400 font-semibold">{t.touristCount}</span>
+              <p className="text-2xl font-black text-amber-400 mt-1">1,482</p>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-slate-800">
+              <span className="text-xs text-slate-400 font-semibold">{t.activeIncidents}</span>
+              <p className="text-2xl font-black text-rose-500 mt-1">{incidents.length}</p>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-slate-800">
+              <span className="text-xs text-slate-400 font-semibold">Active Patrol Units</span>
+              <p className="text-2xl font-black text-emerald-400 mt-1">24 Teams</p>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-slate-800">
+              <span className="text-xs text-slate-400 font-semibold">Avg Response Speed</span>
+              <p className="text-2xl font-black text-slate-200 mt-1">3.4 min</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* INCIDENT DISPATCH QUEUE */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="glass-card rounded-2xl p-5 border border-slate-800">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-sm font-bold text-rose-400 flex items-center space-x-2">
+                    <span>🚨</span>
+                    <span>Emergency Incident Feed</span>
+                  </h3>
+                  <span className="bg-rose-500/20 text-rose-300 text-xs px-2 py-0.5 rounded-full font-mono">
+                    {incidents.length} Alert
+                  </span>
+                </div>
+
+                {incidents.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500 text-xs">
+                    ✓ No active SOS emergency alerts at this time.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                    {incidents.map(inc => (
+                      <div key={inc.id} className="bg-slate-900/90 border border-rose-500/40 rounded-xl p-4 space-y-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-xs font-mono font-bold text-rose-400">{inc.id}</span>
+                            <h4 className="text-sm font-bold text-slate-200">{inc.touristName}</h4>
+                          </div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                            inc.status === 'NEW' ? 'bg-rose-600 text-white animate-pulse' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          }`}>
+                            {inc.status}
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-slate-400 space-y-1">
+                          <p>📍 Zone: <span className="text-slate-200">{inc.zone}</span></p>
+                          <p>🔋 Battery: <span className="text-amber-400">{inc.battery}%</span> | Score: <span className="text-rose-400">{inc.score}/100</span></p>
+                          <p>🕒 Time: <span className="text-slate-300 font-mono">{inc.timestamp}</span></p>
+                        </div>
+
+                        <div className="flex space-x-2 pt-2 border-t border-slate-800">
+                          {inc.status === 'NEW' && (
+                            <button
+                              onClick={() => acknowledgeIncident(inc.id)}
+                              className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs"
+                            >
+                              Dispatch Officer
+                            </button>
+                          )}
+                          <button
+                            onClick={() => resolveIncident(inc.id)}
+                            className="flex-1 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-lg text-xs"
+                          >
+                            Resolve & Close
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* BLOCKCHAIN AUDIT TRAIL PREVIEW */}
+              <div className="glass-card rounded-2xl p-5 border border-slate-800">
+                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3">Tamper-Proof Audit Trail</h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1 text-xs">
+                  {auditTrail.map(log => (
+                    <div key={log.id} className="bg-slate-950 p-2 rounded-lg border border-slate-800/80 flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-slate-200 text-[11px]">{log.action}</p>
+                        <p className="text-[10px] text-slate-400">{log.actor} → {log.target}</p>
+                      </div>
+                      <span className="text-[10px] text-amber-400/80 font-mono">{log.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* LIVE REGIONAL MAP DISPLAY */}
+            <div className="lg:col-span-7 glass-card rounded-2xl p-5 border border-slate-800 space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-bold text-slate-200">Nilgiris Regional Surveillance</h3>
+                <div className="flex items-center space-x-2 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <span className="text-slate-400">Live Pings Active</span>
+                </div>
+              </div>
+
+              <div className="h-[480px] rounded-xl overflow-hidden border border-slate-800 relative bg-slate-950">
+                <iframe
+                  title="Authority Map"
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  src={`https://maps.google.com/maps?q=${tourist.lat},${tourist.lng}&z=13&output=embed`}
+                  className="opacity-80 invert filter contrast-125"
+                ></iframe>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- SUB-COMPONENT: GPS SIMULATOR VIEW ---
+    function GpsSimulatorView({ tourist, setTourist, zones, t }) {
+      const runScenario = (zoneIndex) => {
+        const targetZone = zones[zoneIndex];
+        setTourist(prev => ({
+          ...prev,
+          lat: targetZone.lat,
+          lng: targetZone.lng,
+          currentZone: targetZone
+        }));
+      };
+
+      return (
+        <div className="glass-card rounded-2xl p-6 border border-amber-500/20 max-w-3xl mx-auto space-y-6">
+          <div className="border-b border-slate-800 pb-4">
+            <h2 className="text-lg font-bold font-serif-gold gold-gradient-text">GPS Telemetry Simulator</h2>
+            <p className="text-xs text-slate-400 mt-1">Simulate movement across geo-zones to verify real-time Safety Score recalculation & authority alerts.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {zones.map((zone, idx) => (
+              <button
+                key={zone.id}
+                onClick={() => runScenario(idx)}
+                className={`p-4 rounded-xl border text-left transition-all ${
+                  tourist.currentZone?.id === zone.id
+                    ? 'border-amber-500 bg-amber-500/10'
+                    : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-bold text-sm text-slate-200">{zone.name}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                    zone.type === 'SAFE' ? 'bg-emerald-500/20 text-emerald-400' :
+                    zone.type === 'CAUTION' ? 'bg-amber-500/20 text-amber-400' :
+                    'bg-rose-500/20 text-rose-400'
+                  }`}>
+                    {zone.type}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">{zone.desc}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+            <h3 className="text-xs font-bold text-slate-300">Simulate Hardware Triggers</h3>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => setTourist(prev => ({ ...prev, battery: Math.max(5, prev.battery - 25) }))}
+                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs text-amber-400"
+              >
+                🪫 Drain Battery (-25%)
+              </button>
+              <button
+                onClick={() => setTourist(prev => ({ ...prev, battery: 100 }))}
+                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs text-emerald-400"
+              >
+                🔋 Recharge Battery (100%)
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- SUB-COMPONENT: PUBLIC QR VERIFIER ---
+    function PublicQrVerifierView({ tourist, zones, t }) {
+      const [inputHash, setInputHash] = useState(tourist.digitalIdHash);
+      const [verificationResult, setVerificationResult] = useState(null);
+
+      const handleVerify = () => {
+        if (inputHash.trim().toLowerCase() === tourist.digitalIdHash.toLowerCase()) {
+          setVerificationResult({
+            valid: true,
+            touristName: tourist.name,
+            passport: tourist.passport,
+            issuedBy: "Ministry of Tourism Blockchain Issuer",
+            txHash: tourist.blockchainTx,
+            status: "VALID & ACTIVE"
+          });
+        } else {
+          setVerificationResult({
+            valid: false,
+            message: "Invalid or Revoked Digital Identity Hash"
+          });
+        }
+      };
+
+      return (
+        <div className="glass-card rounded-2xl p-6 border border-amber-500/20 max-w-2xl mx-auto space-y-6">
+          <div className="border-b border-slate-800 pb-4 text-center">
+            <h2 className="text-lg font-bold font-serif-gold gold-gradient-text">Public Digital ID Verifier</h2>
+            <p className="text-xs text-slate-400 mt-1">Instant zero-knowledge verification for police officers & hotel authorities.</p>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-xs text-slate-300 font-semibold">Enter Digital ID Token / Hash:</label>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={inputHash}
+                onChange={(e) => setInputHash(e.target.value)}
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-amber-400 focus:outline-none focus:border-amber-500"
+              />
+              <button
+                onClick={handleVerify}
+                className="px-5 py-2 gold-gradient-bg text-slate-950 font-bold rounded-xl text-xs hover:opacity-90"
+              >
+                Verify On-Chain
+              </button>
+            </div>
+          </div>
+
+          {verificationResult && (
+            <div className={`p-4 rounded-xl border space-y-2 text-xs ${
+              verificationResult.valid ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'
+            }`}>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-sm text-slate-200">
+                  {verificationResult.valid ? '✓ VERIFIED TOURIST DIGITAL ID' : '❌ VERIFICATION FAILED'}
+                </span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  verificationResult.valid ? 'bg-emerald-500 text-slate-950' : 'bg-rose-600 text-white'
+                }`}>
+                  {verificationResult.valid ? verificationResult.status : 'INVALID'}
+                </span>
+              </div>
+
+              {verificationResult.valid && (
+                <div className="space-y-1 text-slate-300 pt-2 border-t border-emerald-500/20">
+                  <p>Tourist: <span className="font-bold text-white">{verificationResult.touristName}</span></p>
+                  <p>Document: <span className="font-mono text-slate-200">{verificationResult.passport}</span></p>
+                  <p>Issuer: <span className="text-amber-400">{verificationResult.issuedBy}</span></p>
+                  <p>Tx Hash: <span className="font-mono text-slate-400 text-[10px]">{verificationResult.txHash}</span></p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Render the React app into root
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
